@@ -24,17 +24,19 @@ library(tidyverse)
 admit.data = read.csv(file = "./admission_predict.csv") %>% 
   janitor::clean_names() %>% 
   mutate(
-    uni.rating = factor(university_rating, labels = c(1, 2, 3, 4, 5), ordered = TRUE),
-    sop.strength = factor(sop, ordered = TRUE),
-    lor.strength = factor(lor, ordered = TRUE),
-    cgpa = cgpa * 100, # interpret unit increase as a hundredth increase
-    has.research = ifelse(research == 1, TRUE, FALSE)
-  )
+    gre.std = (gre_score - mean(gre_score)) / sd(gre_score),
+    toefl.std = (toefl_score - mean(toefl_score)) / sd(toefl_score),
+    cgpa.std = (cgpa - mean(cgpa)) / sd(cgpa),
+    uni.rating = factor(university_rating),
+    sop.strength = factor(sop),
+    lor.strength = factor(lor)
+  ) %>% 
+  select(serial_no, gre.std:lor.strength, research, chance_of_admit)
 ```
 
-In its raw form, the dataset only needs minimal formatting before we can start modeling. GRE, CGPA and TOEFL are already continuous and don't need transformation. For university rating, statement of purpose, and letter of recommendation strength, these variables were converted into ordinal variables to properly characterize their categorial nature. The presence of research was recoded as a proper binary variable. 
+In its raw form, the dataset only needs minimal formatting before we can start modeling. GRE, CGPA and TOEFL are already continuous and don't need coercing, but they will be centered and scaled. For university rating, statement of purpose, and letter of recommendation strength, these variables were converted into ordinal variables to properly characterize their categorial nature. The presence of research was recoded as a proper binary variable. 
 
-Since `chance_of_admit` represents a probability of admission, we will attempt to model it using standard logistic regression as well as logistic-LASSO. We will be using the implementations in `glm` and `glmnet` to do the modeling. Before we start this process, we will explore how each of our predictors are interrelated and related to the response. 
+Since `chance_of_admit` represents a probability of admission, we will attempt to model it using standard linear regression as well as LASSO regression. We will be using the implementations in `lm` and `glmnet` to do the modeling. Before we start this process, we will explore how each of our predictors are interrelated and related to the response. 
 
 # Exploratory Data Analysis
 # Modeling

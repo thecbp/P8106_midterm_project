@@ -5,4 +5,47 @@ date: "3/18/2019"
 output: html_document
 ---
 
-yeupppppp
+```{r cleaning, message = FALSE }
+library(tidyverse)
+admit.data = read.csv(file = "./admission_predict.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    gre.std = (gre_score - mean(gre_score)) / sd(gre_score),
+    toefl.std = (toefl_score - mean(toefl_score)) / sd(toefl_score),
+    cgpa.std = (cgpa - mean(cgpa)) / sd(cgpa),
+    uni.rating = factor(university_rating),
+    sop.strength = factor(sop),
+    lor.strength = factor(lor)
+  ) %>% 
+  select(serial_no, gre.std:lor.strength, research, chance_of_admit)
+```
+
+# Creating the regularized model
+
+Starting the model based on all of the predictors since we're going to use the LASSO to perform variable selection. Since we are performing a LASSO regression, we need to standardize the GRE, TOEFL, and CGPA scores.
+
+```{r log-lasso, message = FALSE }
+library(glmnet)
+
+# Set up the cross-validation for cv.glmnet
+# data contains categorical variables, need model.matrix
+X = admit.data %>% select(gre.std:research)
+fmt.X = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
+                   sop.strength + lor.strength + research, X)
+y = admit.data$chance_of_admit
+
+# Fit a model to see how coefficients change with lambda
+lasso = glmnet(fmt.X[,-1], y, alpha = 1)
+
+# Perform the cross-validation to find the optimal lambda
+lasso.cv = cv.glmnet(fmt.X[,-1], y, alpha = 1, type.measure = "mse")
+cv.min.lambda = lasso.cv$lambda.min
+lasso.fit = glmnet(fmt.X[,-1], y, alpha = 1, lambda = cv.min.lambda)
+
+coef(lasso.fit)
+```
+
+```{r validation-plot }
+plot(lasso, xvar = "lambda")
+```
+
