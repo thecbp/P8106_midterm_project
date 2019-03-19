@@ -1,0 +1,8 @@
+---
+title: "Working Report"
+author: "Dayoung Yu (dry2115), Justin Hsie (jih2119), Christian Pascual (cbp2128)"
+date: "3/18/2019"
+output: pdf_document
+---
+
+yup

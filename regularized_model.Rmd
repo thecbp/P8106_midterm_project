@@ -1,0 +1,8 @@
+---
+title: "Regularized Model"
+author: "Christian Pascual"
+date: "3/18/2019"
+output: html_document
+---
+
+yeupppppp
