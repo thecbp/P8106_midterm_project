@@ -1,0 +1,70 @@
+---
+title: "exploratory_analysis"
+author: "Dayoung Yu"
+date: "3/24/2019"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+admit.data = read.csv(file = "./admission_predict.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    gre.std = (gre_score - mean(gre_score)) / sd(gre_score),
+    toefl.std = (toefl_score - mean(toefl_score)) / sd(toefl_score),
+    cgpa.std = (cgpa - mean(cgpa)) / sd(cgpa),
+    uni.rating = factor(university_rating),
+    sop.strength = factor(sop),
+    lor.strength = factor(lor)
+  ) %>% 
+  select(serial_no, gre.std:lor.strength, research, chance_of_admit)
+```
+
+
+### Explore correlations for GRE TOEFL CGPA
+```{r}
+admit.data %>%
+  select(chance_of_admit, gre.std, toefl.std, cgpa.std) %>%
+  cor()
+```
+
+We see that GRE, TOEFL, and CGPA are all highly correlated with the chance of admittance. However, they are also highly correlated with each other, meaning applicants who have high undergraduate GPAs are more likely to score highly on the GRE and TOEFL. In addition, applicants who score well in one test are likely to score well in the other. Including all GRE, TOEFL, and CGPA as predictors in the model will result in multicollinearity and highly variable model predictability. 
+
+### SOP and LOR
+```{r}
+sop_plot = admit.data %>%
+  ggplot(aes(x = sop.strength, y = chance_of_admit)) +
+  geom_boxplot()
+
+lor_plot = admit.data %>%
+  ggplot(aes(x = lor.strength, y = chance_of_admit)) +
+  geom_boxplot()
+
+library(patchwork)
+sop_plot + lor_plot
+```
+
+As expected, chance of admittance increases as strength of statement of purpose and letter of recommendation increases. We hypothesize that solely high SOP or LOR strength are not sufficient for admittance due to the fact there are many outliers of low chance_of_admit for high SOP/LOP strengths but only two outliers of high chance_of_admit for low SOP/LOP strengths.
+
+### university rating
+```{r}
+
+admit.data %>%
+  ggplot(aes(x = uni.rating, y = chance_of_admit)) +
+  geom_boxplot()
+
+```
+
+Contrary to expectation, chance of admittance increases as university rating increases. One could expect that satisfactory ratings for a university would lead to higher competition, and thus lower the chances of admittance.
+
+### research experience
+```{r}
+admit.data %>%
+  mutate(research = as.factor(research)) %>%
+  ggplot(aes(x = research, y = chance_of_admit)) +
+  geom_boxplot()
+
+```
+
+Participants who have research experience have slightly higher changes of admittance than participants who do not have research experience.
+
