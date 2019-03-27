@@ -1,0 +1,93 @@
+---
+title: "Nonlinear"
+author: "Christian Pascual"
+date: "3/26/2019"
+output: html_document
+---
+
+```{r setup }
+library(tidyverse)
+library(mgcv)
+
+admit.data = read.csv(file = "./admission_predict.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    gre.std = (gre_score - mean(gre_score)) / sd(gre_score),
+    toefl.std = (toefl_score - mean(toefl_score)) / sd(toefl_score),
+    cgpa.std = (cgpa - mean(cgpa)) / sd(cgpa),
+    uni.rating = factor(university_rating),
+    sop.strength = factor(sop),
+    lor.strength = factor(lor)
+  ) %>% 
+  select(serial_no, gre.std:lor.strength, research, chance_of_admit)
+```
+
+# Creating the generalized additive model
+
+## What predictor variables did you include?
+
+```{r viz }
+ggplot(data = admit.data, aes(x = gre.std, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = toefl.std, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = cgpa.std, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = sop.strength, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = uni.rating, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = lor.strength, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = research, y = chance_of_admit)) + 
+  geom_point()
+```
+
+With the standardized GRE, TOEFL and CGPA scorse, there is an increase, but also a levelling off towards the right tail of the data. We may get better predictive ability if we incorporate smoothing splines 
+
+## What technique did you use, and why did you choose it? What assumptions, if any, are being made by using this technique?
+
+
+## If there were tuning parameters, how did you pick their values?
+
+No tuning parameters in the `gam` since `mgcv` optimizes for the smoothing parameters already. 
+
+## How did you make your predictions?
+
+10 fold cross validation. 
+
+## Discuss the training/test performance if you have a test data set.
+
+Same as above
+
+## Which variables play important roles in predicting the response?
+
+
+## What are the limitations of the models you used (if there are any)? Are the models flexible enough to capture the underlying truth?
+
+```{r gam }
+X = admit.data %>% select(gre.std:research)
+fmt.admit = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
+                   sop.strength + lor.strength + research, X)
+fmt.data = cbind(admit.data$chance_of_admit, fmt.admit) %>% 
+  as.tibble(.)
+colnames(fmt.data)[1] = "chance_of_admit"
+
+gam1 = gam(chance_of_admit ~ s(gre.std) + s(toefl.std) + s(cgpa.std), 
+                 data = admit.data)
+gam2 = gam(chance_of_admit ~ s(gre.std) + s(toefl.std) + s(cgpa.std) +
+                   uni.rating, data = admit.data)
+gam3 = gam(chance_of_admit ~ s(gre.std) + s(toefl.std) + s(cgpa.std) +
+                   uni.rating + sop.strength, data = admit.data)
+gam4 = gam(chance_of_admit ~ s(gre.std) + s(toefl.std) + s(cgpa.std) +
+                   uni.rating + sop.strength + lor.strength, data = admit.data)
+gam5 = gam(chance_of_admit ~ s(gre.std) + s(toefl.std) + s(cgpa.std) +
+                   uni.rating + sop.strength + lor.strength + research, data = admit.data)
+anova(gam1, gam2, gam4, gam5, test = "F")
+```
+
+```{r}
+plot(gam2)
+```
+
+

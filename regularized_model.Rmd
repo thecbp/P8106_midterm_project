@@ -22,7 +22,34 @@ admit.data = read.csv(file = "./admission_predict.csv") %>%
 
 # Creating the regularized model
 
-Starting the model based on all of the predictors since we're going to use the LASSO to perform variable selection. Since we are performing a LASSO regression, we need to standardize the GRE, TOEFL, and CGPA scores.
+## What predictor variables did you include?
+
+We are going to use all of the available predictors in the dataset. 
+
+## What technique did you use, and why did you choose it? What assumptions, if any, are being made by using this technique?
+
+With 3 categorical variables, the full model explodes to a model with 25 predictors. In order to create a more parsimonious model, we're going to use the LASSO to perform variable selection. We suspect that only some of the categories have an appreciable impact on the chance of admisison, so we'd like to confirm this with LASSO. LASSO has problems when there are more covariates than observations, but we do not run into this problem with this particular dataset.
+
+## If there were tuning parameters, how did you pick their values?
+
+5-fold cross-validation using glmnet
+
+## How did you make your predictions?
+
+10 fold cross validation. 
+
+## Discuss the training/test performance if you have a test data set.
+
+Same as above
+
+## Which variables play important roles in predicting the response?
+
+
+## What are the limitations of the models you used (if there are any)? Are the models flexible enough to capture the underlying truth?
+
+
+
+Since we are performing a LASSO regression, we need to standardize the GRE, TOEFL, and CGPA scores.
 
 ```{r log-lasso, message = FALSE }
 library(glmnet)
@@ -48,4 +75,9 @@ coef(lasso.fit)
 ```{r validation-plot }
 plot(lasso, xvar = "lambda")
 ```
+
+
+
+
+
 
