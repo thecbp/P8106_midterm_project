@@ -1,0 +1,56 @@
+---
+title: "linear_model"
+author: "Justin Hsie"
+date: "3/27/2019"
+output: html_document
+---
+
+```{r cleaning, message = FALSE }
+library(tidyverse)
+admit.data = read.csv(file = "./admission_predict.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    gre.std = (gre_score - mean(gre_score)) / sd(gre_score),
+    toefl.std = (toefl_score - mean(toefl_score)) / sd(toefl_score),
+    cgpa.std = (cgpa - mean(cgpa)) / sd(cgpa),
+    uni.rating = factor(university_rating),
+    sop.strength = factor(sop),
+    lor.strength = factor(lor)
+  ) %>% 
+  select(serial_no, gre.std:lor.strength, research, chance_of_admit)
+```
+
+#Creating the linear model
+
+## What predictor variables did you include?
+
+We are going to use all of the available predictors in the dataset. 
+
+## What technique did you use, and why did you choose it? What assumptions, if any, are being made by using this technique?
+
+We used glm
+
+## If there were tuning parameters, how did you pick their values?
+
+None
+
+## How did you make your predictions?
+
+10 fold cross validation. 
+
+## Discuss the training/test performance if you have a test data set.
+
+Same as above
+
+## Which variables play important roles in predicting the response?
+
+
+## What are the limitations of the models you used (if there are any)? Are the models flexible enough to capture the underlying truth?
+
+```{r glm}
+glm.fit = glm(chance_of_admit ~ gre.std + toefl.std + cgpa.std + uni.rating + 
+                   sop.strength + lor.strength + research, data = admit.data)
+plot(glm.fit)
+```
+
+
