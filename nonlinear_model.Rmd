@@ -91,3 +91,10 @@ plot(gam2)
 ```
 
 Notes to self: smoothing out the TOEFL and CGPA seems to help out with the prediction. GRE not. 
+
+```{r final-gam }
+gam.fit =  gam(chance_of_admit ~ gre.std + s(toefl.std) + s(cgpa.std) +
+                   uni.rating + sop.strength + lor.strength + research, data = admit.data)
+```
+
+
