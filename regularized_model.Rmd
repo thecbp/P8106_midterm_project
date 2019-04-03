@@ -71,11 +71,6 @@ lasso.fit = glmnet(fmt.X[,-1], y, alpha = 1, lambda = cv.min.lambda)
 
 coef(lasso.fit)
 
-# MSE
-lasso.pred = predict(lasso, s = cv.min.lambda, newx = fmt.X[,-1]) 
-mse.lasso = mean((lasso.pred - y)^2)
-mse.lasso
-
 ```
 
 ```{r validation-plot }

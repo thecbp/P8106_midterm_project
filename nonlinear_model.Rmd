@@ -97,4 +97,3 @@ gam.fit =  gam(chance_of_admit ~ gre.std + s(toefl.std) + s(cgpa.std) +
                    uni.rating + sop.strength + lor.strength + research, data = admit.data)
 ```
 
-
