@@ -70,6 +70,12 @@ cv.min.lambda = lasso.cv$lambda.min
 lasso.fit = glmnet(fmt.X[,-1], y, alpha = 1, lambda = cv.min.lambda)
 
 coef(lasso.fit)
+
+# MSE
+lasso.pred.test = predict(lasso, s = cv.min.lambda, newx = fmt.X[,-1]) 
+mse.lasso = mean((lasso.pred.test - y)^2)
+mse.lasso
+
 ```
 
 ```{r validation-plot }
