@@ -30,45 +30,126 @@ set.seed(8106)
 folds = crossv_kfold(admit.data, k = 10)
 ```
 
-```{r models }
-# Set up the basic linear model
-lin.fit = lm(chance_of_admit ~ gre.std + toefl.std + cgpa.std 
-             + uni.rating + sop.strength + lor.strength 
-             + research, data = admit.data)
-
-# Set up the cross-validation for cv.glmnet
-X = admit.data %>% dplyr::select(gre.std:research)
-fmt.X = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
-                   sop.strength + lor.strength + research, X)
-y = admit.data$chance_of_admit
-
-# Perform the cross-validation to find the optimal lambda
-# Create the optimal LASSO fit
-lasso.cv = cv.glmnet(fmt.X[,-1], y, alpha = 1, type.measure = "mse")
-lasso.fit = glmnet(fmt.X[,-1], y, alpha = 1, 
-                   lambda = lasso.cv$lambda.min)
-
-# Create the GAM model
-gam.fit =  gam(chance_of_admit ~ gre.std + s(toefl.std) + s(cgpa.std) 
-               + uni.rating + sop.strength + lor.strength 
-               + research, data = admit.data)
-```
-
-
+### Linear CV
+Cross validation was performed in two ways: 1)using map function and 2) using loops. They had the same results.. YAY! we should prob use the loop method to stay consistent?
+MSE: 0.003688345
 
 ```{r}
-fmt.X = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
-                   sop.strength + lor.strength + research, X)
-```
+# linear model 1
 
-```{r}
-# linear model
-lm_models = map(folds$train, ~ lm(chance_of_admit ~ gre.std + toefl.std + cgpa.std 
+# fit models on train data
+lm.models = map(folds$train, ~ lm(chance_of_admit ~ gre.std + toefl.std + cgpa.std 
              + uni.rating + sop.strength + lor.strength 
              + research, data = .))
 
-summary(map2_dbl(lm_models, folds$test, modelr::rmse))
+# test predictions
+lm.mse = map2_dbl(lm.models, folds$test, modelr::mse)
 
+mean(lm.mse)
+```
+
+```{r}
+#linear models 2
+for (k in 1:nrow(folds)) {
+  
+  # prepare test and train data
+  train.idx = folds[k,1][[1]][[toString(k)]]$idx
+  train = admit.data[train.idx,]
+  test = admit.data[-train.idx,]
+  
+  y.test = test$chance_of_admit
+  
+  # fit models on train
+  lin.models = lm(chance_of_admit ~ gre.std + toefl.std + cgpa.std 
+             + uni.rating + sop.strength + lor.strength 
+             + research, data = train)
+  
+  # test 
+  lin.pred = predict(lin.models, newdata = test)
+  
+  lin.mse[k] = mean((lin.pred - y.test)^2)
+
+}
+
+lin.mse.final = mean(lin.mse)
+```
+
+### Lasso CV
+MSE:0.003684451
+```{r}
+# lasso
+for (k in 1:nrow(folds)) {
+  
+  # prepare test and train data
+  train.idx = folds[k,1][[1]][[toString(k)]]$idx
+  train = admit.data[train.idx,]
+  test = admit.data[-train.idx,]
+  
+  # train matrix
+  X.train = train %>% dplyr::select(gre.std:research)
+  fmt.X.train = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
+                   sop.strength + lor.strength + research, X.train)
+  y.train = train$chance_of_admit
+  
+  # test matrix
+  X.test = test %>% dplyr::select(gre.std:research)
+  fmt.X.test = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
+                   sop.strength + lor.strength + research, X.test)
+  y.test = test$chance_of_admit
+  
+  # fit models on train
+  lasso.cv = cv.glmnet(fmt.X.train[,-1], y.train, alpha = 1, type.measure = "mse")
+  lasso.models = glmnet(fmt.X.train[,-1], y.train, alpha = 1, 
+                   lambda = lasso.cv$lambda.min)
+  
+  # test 
+  lasso.pred = predict(lasso.models, s = lasso.cv$lambda.min, newx = fmt.X.test[,-1])
+  
+  lasso.mse[k] = mean((lasso.pred - y.test)^2)
+  
+}
+
+lasso.mse.final = mean(lasso.mse)
 
 ```
+
+### GAM CV
+MSE: 0.003695414
+```{r}
+# gam
+
+for (k in 1:nrow(folds)) {
+  
+  # prepare test and train data
+  train.idx = folds[k,1][[1]][[toString(k)]]$idx
+  train = admit.data[train.idx,]
+  test = admit.data[-train.idx,]
+  
+  y.test = test$chance_of_admit
+  
+  # fit models on train
+  gam.models =  gam(chance_of_admit ~ gre.std + s(toefl.std) + s(cgpa.std) 
+               + uni.rating + sop.strength + lor.strength 
+               + research, data = train)
+  
+  # test 
+  gam.pred = predict(gam.models, newdata = test)
+  
+  gam.mse[k] = mean((gam.pred - y.test)^2)
+
+}
+  
+gam.mse.final = mean(gam.mse)
+
+```
+
+
+### Results:
+linear mse = 0.003688345
+lasso mse = 0.003684451
+gam mse = 0.003695414
+
+The lasso model had the lowest resulting MSE from 10-fold cross-validation. However, all MSEs from linear, lasso, and gam models were very similar.
+
+
 
