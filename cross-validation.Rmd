@@ -17,9 +17,9 @@ admit.data = read.csv(file = "./admission_predict.csv") %>%
     gre.std = (gre_score - mean(gre_score)) / sd(gre_score),
     toefl.std = (toefl_score - mean(toefl_score)) / sd(toefl_score),
     cgpa.std = (cgpa - mean(cgpa)) / sd(cgpa),
-    uni.rating = factor(university_rating),
-    sop.strength = factor(sop),
-    lor.strength = factor(lor)
+    uni.rating = university_rating,
+    sop.strength = sop,
+    lor.strength = lor
   ) %>% 
   dplyr::select(serial_no, gre.std:lor.strength, research, chance_of_admit)
 ```
@@ -54,4 +54,21 @@ gam.fit =  gam(chance_of_admit ~ gre.std + s(toefl.std) + s(cgpa.std)
                + research, data = admit.data)
 ```
 
+
+
+```{r}
+fmt.X = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
+                   sop.strength + lor.strength + research, X)
+```
+
+```{r}
+# linear model
+lm_models = map(folds$train, ~ lm(chance_of_admit ~ gre.std + toefl.std + cgpa.std 
+             + uni.rating + sop.strength + lor.strength 
+             + research, data = .))
+
+summary(map2_dbl(lm_models, folds$test, modelr::rmse))
+
+
+```
 
