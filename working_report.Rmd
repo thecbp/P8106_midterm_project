@@ -4,7 +4,6 @@ author: "Dayoung Yu (dry2115), Justin Hsie (jih2119), Christian Pascual (cbp2128
 date: "3/18/2019"
 output: 
   pdf_document:
-    toc: true
     number_sections: true
     fig_width: 7
     fig_height: 6
@@ -13,59 +12,78 @@ output:
 
 # Introduction
 
-Applying to graduate programs is a harrowing process for any student. Between the statement of purpose, letters of recommendation, GRE and grades, there's a lot of components that can influence the acceptance or rejection of a hopeful student. Given data on the application components, predicting a student's chance of poses an interesting regression problem. From a student perspective, the ability to predict chances of admission would allow them to ground their expectations and plan for the future. 
+Applying to graduate programs is a harrowing process for any student. Between the statement of purpose, letters of recommendation, GRE and GPA, there's a lot of factors that can influence the acceptance or rejection of a hopeful student. Given data on the application components, predicting a student's chance of poses an interesting regression problem. From a student perspective, the ability to predict chances of admission would allow them to ground their expectations and plan for the future. 
 
-The *Graduate Admissions* dataset from Kaggle contains data on about 500 Indian students applying for Master's programs. The response variable we hope to predict is `Chance of Admit`. The potential predictors are various Master's application components converted into continuous or categorical form, including: GRE score, TOEFL score, university rating, statement of purpose strength, letter of recommendations strength, cumulative GPA and the presence of research experience. This report seeks to create, evaluate and select a predictive model that takes these covariates and predicts a student's chance of admission. We hope to figure out what factors are the most crucial (or unhelpful) elements to improving one's chances of admissions.
+The *Graduate Admissions* dataset from Kaggle contains data on about 500 Indian students applying for Master's programs in the United States. The response variable we hope to predict is `Chance of Admit`. The potential predictors are various Master's application components converted into continuous or categorical form, including: GRE score, TOEFL score, university rating, statement of purpose strength, letter of recommendations strength, cumulative GPA and the presence of research experience. 
 
 ## Data Cleaning 
 
-```{r cleaning, message = FALSE }
-library(tidyverse)
+```{r cleaning, message = FALSE, warning = FALSE }
+library(glmnet) # LASSO & ridge
+library(mgcv) # GAMs
+library(earth) # MARS
+library(modelr) # cross-validation help
+
+# Loading in the dataset
 admit.data = read.csv(file = "./admission_predict.csv") %>% 
   janitor::clean_names() %>% 
-  mutate(
+  dplyr::mutate(
     gre.std = (gre_score - mean(gre_score)) / sd(gre_score),
     toefl.std = (toefl_score - mean(toefl_score)) / sd(toefl_score),
     cgpa.std = (cgpa - mean(cgpa)) / sd(cgpa),
-    uni.rating = factor(university_rating),
-    sop.strength = factor(sop),
-    lor.strength = factor(lor)
+    uni.rating = university_rating,
+    sop.strength = sop,
+    lor.strength = lor
   ) %>% 
-  select(serial_no, gre.std:lor.strength, research, chance_of_admit)
+  dplyr::select(gre.std:lor.strength, research, chance_of_admit)
 ```
 
-In its raw form, the dataset only needs minimal formatting before we can start modeling. GRE, CGPA and TOEFL are already continuous and don't need coercing, but they will be centered and scaled. For university rating, statement of purpose, and letter of recommendation strength, these variables were converted into ordinal variables to properly characterize their categorial nature. The presence of research was recoded as a proper binary variable. 
+```{r echo = FALSE }
+knitr::kable(head(admit.data))
+```
 
-Since `chance_of_admit` represents a probability of admission, we will attempt to model it using standard linear regression as well as LASSO regression. We will be using the implementations in `lm` and `glmnet` to do the modeling. Before we start this process, we will explore how each of our predictors are interrelated and related to the response. 
+In its raw form, the dataset only needs minimal formatting before we can start modeling. GRE, CGPA and TOEFL are already continuous and don't need coercing, but they will be centered and scaled. For university rating, statement of purpose, and letter of recommendation strength, these variables are seemingly categorical, but they will be treated as continuous for easier interpretation and to reduce the number of dummy predictors. The presence of research was recoded as a proper binary variable. 
+
+We will attempt to predict `Chance of Admit` using a total of 5 models: 3 linear models, ordinary linear regression, ridge regression and LASSO, and 2 non-linear models, a generalized additive and MARS model. We will be using the implementations in `lm`, `glmnet`, `gam` and `earth` to do the modeling. Before we start this process, we will explore how each of our predictors are interrelated and related to the response. 
+
+This final product of seeks to create these models, compare them, and hopefully recommend one for use by future college hopefuls.  
 
 # Exploratory Data Analysis
-# Modeling
+
+# Models
+
+Our dataset only contains 7 predictors, so we will incorporate all of them into each of our 4 models. Each of these factors are requested in most Master's program applications, so we will assume all will have an impact on predicting the chance of admission.
+
+## Linear Models
+
+We plan to use ordinary linear regression as a *baseline* model to compare the other 4 models with. Although we suspect that all the variables will have an appreciable impact on the chance of admission, we still want to allow for the possibility that some predictors do not truly contribute. Furthermore, we also found high correlation between many of our predictors in our exploratory data analysis, so we also want to adjust for potential inflation of our regression coefficients. Therefore, we plan to use the ridge and LASSO models to shrink the coefficients and perform variable selection to adjust for these findings and hopefully improve predictions.  
+
+## Non-linear Models
+
+In our exploratory data analysis, we also found that some of our predictors (CGPA and TOEFL) had a slight nonlinear relationship with the chance of admission. We hope to use a GAM model and a MARS model to better capture these nonlinear relationships and produce improved predictions as a result. 
+
+## Model Tuning
+
+We used `cv.glmnet` to find the optimal $\lambda$ for both the ridge and LASSO models via 5-fold cross-validation. For the GAM, we found the optimal smoothing parameters via generalized cross-validation. Similarly, generalized cross-valiation was used to select the optimal number of knots in the MARS model.
+
+## Findings
+
+For each of the models, we used 10-fold cross-validation to evaluate the average test fold MSE as a measurement of predictive ability. Table # below shows a comparison of the average test fold MSE for each of the 5 models. 
+
+```{r}
+
+```
+
+## Important Variables
+
+We found that [VARIABLES] play the most important role in predicting chance of admission... The least important factors were...
+
+## Limitations
+
+The ridge model, GAM and MARS model were chosen to try to maximize the predictive ability, but each of these models is limited in interpretability. Attemptingt to explain what each coefficient means would be difficult, compared to the ordinary linear regression or LASSO model. Our data contained predictors that had approximately linear relationships with chance of admission, so we believe that our models were flexible enough to capture the complexity in the data.
+
 # Conclusion
 
-# From Canvas:
 
-~~Introduction~~
 
-~~Describe your data set. Provide proper motivation for your work.~~
-~~What questions are you trying to answer?~~
-~~How did you prepare and clean the data?~~
- 
-Exploratory data analysis/visualization
 
-Is there any interesting structure present in the data?
-What were your findings?
-Here you can use any techniques as long as they are adequately explained. If you cannot find anything interesting, then describe what you tried and show that there isn’t much visible structure. Data science is NOT manipulating the data in some way until you get an answer.
-
-Models
-
-What predictor variables did you include?
-What technique did you use, and why did you choose it? What assumptions, if any, are being made by using this technique?
-If there were tuning parameters, how did you pick their values?
-How did you make your predictions?
-Discuss the training/test performance if you have a test data set.
-Which variables play important roles in predicting the response?
-What are the limitations of the models you used (if there are any)? Are the models flexible enough to capture the underlying truth?
- 
-Conclusions
-
-What were your findings? Are they what you expect? What insights into the data can you make?
