@@ -26,6 +26,7 @@ library(modelr) # cross-validation help
 library(earth)
 library(caret) # cross-validation help
 library(kableExtra)
+library(corrplot)
 
 # Loading in the dataset
 admit.data = read.csv(file = "./admission_predict.csv") %>% 
@@ -42,7 +43,7 @@ admit.data = read.csv(file = "./admission_predict.csv") %>%
 ```
 
 ```{r echo = FALSE }
-knitr::kable(head(admit.data))
+knitr::kable(head(admit.data), booktabs = T)
 ```
 
 In its raw form, the dataset only needs minimal formatting before we can start modeling. GRE, CGPA and TOEFL are already continuous and don't need coercing, but they will be centered and scaled. For university rating, statement of purpose, and letter of recommendation strength, these variables are seemingly categorical, but they will be treated as continuous for easier interpretation and to reduce the number of dummy predictors. The presence of research was recoded as a proper binary variable. 
@@ -53,7 +54,7 @@ This final product of seeks to create these models, compare them, and hopefully 
 
 # Exploratory Data Analysis
 
-```{r}
+```{r, echo = FALSE}
 cor.matrix = cbind(as.tibble(names(admit.data)), as.tibble(cor(admit.data)))
 
 cor.matrix %>%
@@ -68,7 +69,7 @@ corrplot(cor(x))
 From the correlation matrix, we see that all predictors except `research` are highly correlated with each other ($\rho$>0.5). The highest correlation occurs between `gre.std`, `toefl.std`, and `cgpa.std`, indicating that applicants who have high GPAs are more likely to have high test scores, and applicants who score well in one standardized test will more likely score well in the other. Including all three `gre.std`, `toefl.std`, and `cgpa.std` predictors may result in multicollinearity and highly variable model predictability. 
 
 
-```{r}
+```{r, echo = FALSE}
 x2 = model.matrix(chance_of_admit ~ gre.std+toefl.std+cgpa.std+sop.strength+lor.strength+uni.rating,
                   admit.data)[,-1]
 y = admit.data$chance_of_admit
@@ -175,11 +176,68 @@ tib = tibble(
                       mean(gam.mse),
                       mean(mars.mse))
 ) %>% arrange(`Avg. Test MSE`)
-knitr::kable(tib,
+knitr::kable(tib, booktabs = T,
              caption = "Average Test Fold MSE between the 5 candidate models")
 ```
 
 The LASSO model performed the best out of the 5 models, although all of them are comparable since they have similar average test fold MSEs. The difference between the best and worst models is on the $1^{-5}$ scale, which would have a negligible difference in terms of predicting a student's chance of admission. 
+
+
+
+```{r estimate table, echo = FALSE}
+# create matrix
+X = admit.data %>% select(gre.std:research)
+fmt.X = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
+                   sop.strength + lor.strength + research, X)
+y = admit.data$chance_of_admit
+
+#linear model
+glm.fit = glm(chance_of_admit ~ gre.std + toefl.std + cgpa.std + uni.rating + 
+                   sop.strength + lor.strength + research, data = admit.data)
+
+# lasso model
+lasso.cv = cv.glmnet(fmt.X[,-1], y, alpha = 1, type.measure = "mse")
+lasso.fit = glmnet(fmt.X[,-1], y, alpha = 1, lambda = lasso.cv$lambda.min)
+
+# ridge model
+ridge.cv = cv.glmnet(fmt.X[,-1], y, alpha = 0, type.measure = "mse",
+                       lambda = exp(seq(-1, 10, length = 100)))
+ridge.fit = glmnet(fmt.X[,-1], y, alpha = 0, lambda = ridge.cv$lambda.min)
+
+
+# make table
+Predictor = row.names(as.tibble(coef(glm.fit))) 
+
+glm.coef = as.tibble(coef(glm.fit)) %>%
+  rownames_to_column() %>%
+  select("Predictor" = rowname, "Linear" = value)
+
+lasso.coef = as.tibble(coef(lasso.fit)[,1]) %>%
+  rownames_to_column() %>%
+  select("Predictor" = rowname, "LASSO" = value)
+
+ridge.coef = as.tibble(coef(ridge.fit)[,1]) %>%
+  rownames_to_column() %>%
+  select("Predictor" = rowname, "Ridge" = value) 
+
+glm_lasso = full_join(glm.coef, lasso.coef, by = "Predictor")
+
+coef.table = full_join(glm_lasso, ridge.coef, by = "Predictor") %>%
+  column_to_rownames(var = "Predictor")
+
+# print table
+options(knitr.kable.NA = '*')
+
+coef.table %>%
+kable("latex", booktabs = T, linesep = "", escape = F, digits = 4,
+      caption = "Coefficient estimates of the three linear models") %>%
+  kable_styling(latex_options = c("striped", "hold_position")) %>%
+  add_header_above(c(" " = 1, "Coefficient Estimates" = 3), bold = T) %>%
+  column_spec(-1, width = "6em")
+
+
+```
+
 
 ## Important Variables
 
