@@ -2,33 +2,80 @@
 title: "exploratory_analysis"
 author: "Dayoung Yu"
 date: "3/24/2019"
-output: html_document
+output: pdf_document
 ---
 
 ```{r}
 library(tidyverse)
+library(kableExtra)
+library(corrplot)
+library(caret)
+
 admit.data = read.csv(file = "./admission_predict.csv") %>% 
   janitor::clean_names() %>% 
   mutate(
     gre.std = (gre_score - mean(gre_score)) / sd(gre_score),
     toefl.std = (toefl_score - mean(toefl_score)) / sd(toefl_score),
     cgpa.std = (cgpa - mean(cgpa)) / sd(cgpa),
-    uni.rating = factor(university_rating),
-    sop.strength = factor(sop),
-    lor.strength = factor(lor)
+    uni.rating = university_rating,
+    sop.strength = sop,
+    lor.strength = lor
   ) %>% 
-  select(serial_no, gre.std:lor.strength, research, chance_of_admit)
+  select(gre.std:lor.strength, research, chance_of_admit)
 ```
 
 
 ### Explore correlations for GRE TOEFL CGPA
 ```{r}
-admit.data %>%
-  select(chance_of_admit, gre.std, toefl.std, cgpa.std) %>%
-  cor()
+cor.matrix = cbind(as.tibble(names(admit.data)), as.tibble(cor(admit.data)))
+
+cor.matrix %>%
+  kable("latex", caption = "Correlation matrix of predictors", digits = 4) %>%
+  kable_styling(latex_options = c("hold_position","scale_down"))
+
+x = model.matrix(chance_of_admit ~ ., admit.data)[,-1]
+corrplot(cor(x))
 ```
 
-We see that GRE, TOEFL, and CGPA are all highly correlated with the chance of admittance. However, they are also highly correlated with each other, meaning applicants who have high undergraduate GPAs are more likely to score highly on the GRE and TOEFL. In addition, applicants who score well in one test are likely to score well in the other. Including all GRE, TOEFL, and CGPA as predictors in the model will result in multicollinearity and highly variable model predictability. 
+
+From the correlation matrix, we see that all predictors except `research` are highly correlated with each other ($\rho$>0.5). The highest correlation occurs between `gre.std`, `toefl.std`, and `cgpa.std`, indicating that applicants who have high GPAs are more likely to have high test scores, and applicants who score well in one standardized test will more likely score well in the other. Including all three `gre.std`, `toefl.std`, and `cgpa.std` predictors may result in multicollinearity and highly variable model predictability. 
+
+
+```{r}
+x2 = model.matrix(chance_of_admit ~ gre.std+toefl.std+cgpa.std+sop.strength+lor.strength+uni.rating,
+                  admit.data)[,-1]
+y = admit.data$chance_of_admit
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col <- rgb(.2, .4, .2, .5)
+theme1$plot.symbol$pch <- 16
+theme1$plot.line$col <- rgb(.8, .1, .1, 1)
+theme1$plot.line$lwd <- 2
+theme1$strip.background$col <- rgb(.0, .2, .6, .2)
+trellis.par.set(theme1)
+featurePlot(x2, y, plot = "scatter", labels = c("","chance_of_admit"),
+            type = c("p"), layout = c(3, 2))
+```
+
+The exploratory plots indicate the existence of a positive relationship between all predictors and `Chance of Admit`. From the second row, we see that as GPA, GRE, and TOEFL scores increase, the chance of admittance increases. In addition, higher ranks on a 1:5 scale of statement of purpose strength, letter of recommendation strength, and university rating are associated with high chances of admittance. The plot for `research` was not included due to its binomial nature. However, the data indicate that presence of research experience is also positively associated with chance of admittance.
+
+
+```{r}
+ggplot(data = admit.data, aes(x = gre.std, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = toefl.std, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = cgpa.std, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = sop.strength, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = uni.rating, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = lor.strength, y = chance_of_admit)) + 
+  geom_point()
+ggplot(data = admit.data, aes(x = research, y = chance_of_admit)) + 
+  geom_point()
+```
+
 
 ### SOP and LOR
 ```{r}
