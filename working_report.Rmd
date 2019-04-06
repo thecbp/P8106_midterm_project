@@ -12,7 +12,7 @@ output:
 
 # Introduction
 
-Applying to graduate programs is a harrowing process for any student. Between the statement of purpose, letters of recommendation, GRE and GPA, there's a lot of factors that can influence the acceptance or rejection of a hopeful student. Given data on the application components, predicting a student's chance of poses an interesting regression problem. From a student perspective, the ability to predict chances of admission would allow them to ground their expectations and plan for the future. 
+Applying to graduate programs is a harrowing process for any student. Between the statement of purpose, letters of recommendation, GRE and GPA, there's a lot of factors that can influence the acceptance or rejection of a hopeful student. Given data on the application components, predicting a student's chance of admission poses an interesting regression problem. From a student perspective, the ability to predict chances of admission would allow them to ground their expectations and plan for the future. 
 
 The *Graduate Admissions* dataset from Kaggle contains data on about 500 Indian students applying for Master's programs in the United States. The response variable we hope to predict is `Chance of Admit`. The potential predictors are various Master's application components converted into continuous or categorical form, including: GRE score, TOEFL score, university rating, statement of purpose strength, letter of recommendations strength, cumulative GPA and the presence of research experience. 
 
@@ -238,10 +238,10 @@ kable("latex", booktabs = T, linesep = "", escape = F, digits = 4,
 
 ## Limitations
 
-The ridge model, GAM and MARS model were chosen to try to maximize the predictive ability, but each of these models is limited in interpretability. Attemptingt to explain what each coefficient means would be difficult, compared to the ordinary linear regression or LASSO model. Our data contained predictors that had approximately linear relationships with chance of admission, so we believe that our models were flexible enough to capture the complexity in the data.
+The ridge model, GAM and MARS model were chosen to try to maximize the predictive ability, but each of these models is limited in interpretability. Attempting to explain what each coefficient means would be difficult, compared to the ordinary linear regression or LASSO model. Our data contained predictors that had approximately linear relationships with chance of admission, so we believe that our models were flexible enough to capture the complexity in the data.
 
 # Conclusion
 
-
+In conclusion, the LASSO model was the best in predicting chances of admission with the lowest MSE of 0.0036848, and the worst being the MARS model with an MSE of 0.0038899. However, all of the models performed very similarly, so we would not consider any model's predictions significantly better than another. Because of this, we would recommend using any of the three linear models for ease of interpretation in addition to prediction accuracy. We were expecting a non-linear model to perform the best and were surprised that the LASSO model beat out the other non-linear models, albeit not by much. It turns out the non-linear models were not necessarily needed to capture the slight non-linear relationships in our data. As stated above, CGPA and GRE were the most influential predictors in our ordinary linear regression and LASSO models, with the coefficients being 0.0717 and 0.0209 respectively in our LASSO model. ALthough the coefficient for research was 0.0235, we did not consider it an influence because research is a binary outcome. Our findings make sense in that we would expect GPA and GRE scores to be the most efficient mechanism for universities to weed out large numbers of applicants, with the other factors playing a bigger role in later stages when GPA and GRE scores are more similar across considered applicants. A follow up analysis could be done to determine whether the other predictors have a bigger impact on chances of admission when all applicants have similar, strong GPA and GRE scores. We hope that our models will give graduate school applicants a better idea of what to expect in terms of chances of admission given the components of their application.
 
 
