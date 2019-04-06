@@ -18,12 +18,12 @@ The *Graduate Admissions* dataset from Kaggle contains data on about 500 Indian 
 
 ## Data Cleaning 
 
-```{r cleaning, message = FALSE, warning = FALSE }
+```{r cleaning, message = FALSE, warning = FALSE, echo = FALSE }
 library(tidyverse)
 library(glmnet) # LASSO
 library(mgcv) # GAMs
 library(modelr) # cross-validation help
-library(earth)
+library(earth) # MARS
 library(caret) # cross-validation help
 library(kableExtra)
 library(corrplot)
@@ -42,19 +42,13 @@ admit.data = read.csv(file = "./admission_predict.csv") %>%
   dplyr::select(gre.std:lor.strength, research, chance_of_admit)
 ```
 
-```{r echo = FALSE }
-knitr::kable(head(admit.data), booktabs = T)
-```
-
 In its raw form, the dataset only needs minimal formatting before we can start modeling. GRE, CGPA and TOEFL are already continuous and don't need coercing, but they will be centered and scaled. For university rating, statement of purpose, and letter of recommendation strength, these variables are seemingly categorical, but they will be treated as continuous for easier interpretation and to reduce the number of dummy predictors. The presence of research was recoded as a proper binary variable. 
 
-We will attempt to predict `Chance of Admit` using a total of 5 models: 3 linear models, ordinary linear regression, ridge regression and LASSO, and 2 non-linear models, a generalized additive and MARS model. We will be using the implementations in `lm`, `glmnet`, `gam` and `earth` to do the modeling.
-
-This final product of seeks to create these models, compare them, and hopefully recommend one for use by future college hopefuls.  
+This project seeks to create these different models, compare them, and hopefully recommend one for use by future college hopefuls.  
 
 # Exploratory Data Analysis
 
-Before starting the modeling, we explored our dataset to see how each of the predictors related to the response and to each other. Our findings here motivated the inclusion of the models in our report.
+Before starting the modeling, we explored our dataset to see how each of the predictors related to the response and to each other. Our findings here motivate the inclusion of some of the models in our report.
 
 ## Intercorrelation
 
@@ -66,7 +60,7 @@ corrplot(cor(x))
 
 The correlation matrix above shows that all predictors have moderately high correlation between each other ($\rho$ > 0.5). The highest correlation occurs between `gre.std`, `toefl.std`, and `cgpa.std`. We expected this result since applicants with high GPAs are also more likely to score well on other tests. Including all three `gre.std`, `toefl.std`, and `cgpa.std` predictors may result in multicollinearity and inflated coefficient estimates. In response to this, we decided to explore how a LASSO and ridge regression could curb the effect of this correlation and improve predictions.
 
-```{r, echo = FALSE, fig.height = 5}
+```{r, echo = FALSE, fig.height = 4}
 x2 = model.matrix(chance_of_admit ~ gre.std+toefl.std+cgpa.std+sop.strength+lor.strength+uni.rating,
                   admit.data)[,-1]
 y = admit.data$chance_of_admit
@@ -85,6 +79,8 @@ The scatterplots above indicate the existence of a positive relationship between
 
 # Models
 
+We will attempt to predict `Chance of Admit` using a total of 5 models: 3 linear models, ordinary linear regression, ridge regression and LASSO, and 2 non-linear models, a generalized additive and MARS model. We will be using the implementations in `lm`, `glmnet`, `gam` and `earth` to do the modeling.
+
 Our dataset only contains 7 predictors, so we will incorporate all of them into each of our 4 models. Each of these factors are requested in most Master's program applications, so we will assume all will have an impact on predicting the chance of admission.
 
 ## Linear Models
@@ -97,11 +93,11 @@ In our exploratory data analysis, we also found that some of our predictors (CGP
 
 ## Model Tuning
 
-We used `cv.glmnet` to find the optimal $\lambda$ for both the ridge and LASSO models via 5-fold cross-validation. For the GAM, we found the optimal smoothing parameters via generalized cross-validation. In order to tune our MARS model, we created a tuning grid spanning from 1 to 3 degrees and from 1 to 50 terms. Then, we used `caret` to choose the best set from this grid. 
+We used `cv.glmnet` to find the optimal $\lambda$ for both the ridge and LASSO models via 5-fold cross-validation. For the GAM, we found the optimal smoothing parameters via generalized cross-validation. In order to tune our MARS model, we created a tuning grid spanning from 1 to 3 degrees and from 1 to 50 retained terms. Then, we used `caret` to choose the best set from this grid. 
 
 ## Findings
 
-For each of the models, we used 10-fold cross-validation to evaluate the average test fold MSE as a measurement of predictive ability. Table # below shows a comparison of the average test fold MSE for each of the 5 models. 
+For each of the models, we used 10-fold cross-validation to evaluate the average test fold MSE as a measurement of predictive ability. Table 1 shows a comparison of the average test fold MSE for each of the 5 models. 
 
 ```{r predict-cv, echo = FALSE }
 set.seed(8106)
@@ -176,11 +172,9 @@ knitr::kable(tib, booktabs = T,
              caption = "Average Test Fold MSE between the 5 candidate models")
 ```
 
-The LASSO model performed the best out of the 5 models, although all of them are comparable since they have similar average test fold MSEs. The difference between the best and worst models is on the $1^{-5}$ scale, which would have a negligible difference in terms of predicting a student's chance of admission. 
-
 ## Important Variables
 
-In our basic linear and LASSO model, CGPA and GRE score exert the strongest influences over a student's chance of admission. The ridge model resulted in coefficients that suggest that all variables affect the chance of admission on a similar scale; each of the variables increases the predicted chance of admission by about 1%. Conversely, the strength of a student's statement of purpose and the rating of the university have the least influence on the chance of admisison. This finding makes sense since we would expect factors that reflect a student's work and testing ability to have a greater impact on admission. The table below summarizes our findings with the linear models. 
+In our basic linear and LASSO model, CGPA, GRE score and research exert the strongest influences over a student's chance of admission. The ridge model resulted in coefficients that suggest that all variables affect the chance of admission on a similar scale; each of the variables increases the predicted chance of admission by about 1%. Conversely, the strength of a student's statement of purpose and the rating of the university have the least influence on the chance of admisison. Table 2 summarizes the coefficients with the linear models. 
 
 ```{r estimate table, echo = FALSE, warning = FALSE }
 # create matrix
@@ -238,10 +232,16 @@ kable("latex", booktabs = T, linesep = "", escape = F, digits = 4,
 
 ## Limitations
 
-The ridge model, GAM and MARS model were chosen to try to maximize the predictive ability, but each of these models is limited in interpretability. Attempting to explain what each coefficient means would be difficult, compared to the ordinary linear regression or LASSO model. Our data contained predictors that had approximately linear relationships with chance of admission, so we believe that our models were flexible enough to capture the complexity in the data.
+The ridge model, GAM and MARS model were chosen to try to maximize the predictive ability, but each of these models are limited in interpretability. Attempting to explain what each coefficient means would be difficult, compared to the ordinary linear regression. Our data contained predictors that had approximately linear relationships with chance of admission, so we believe that our models were flexible enough to capture the complexity in the data.
+
+We believe that all of our models are also limited by the range of responses in our dataset. The range for chance of admission only range from 40% to 95%, so we cannot guarantee that our model would be predictive of out-of-range probabilities.
 
 # Conclusion
 
-In conclusion, the LASSO model was the best in predicting chances of admission with the lowest MSE of 0.0036848, and the worst being the MARS model with an MSE of 0.0038899. However, all of the models performed very similarly, so we would not consider any model's predictions significantly better than another. Because of this, we would recommend using any of the three linear models for ease of interpretation in addition to prediction accuracy. We were expecting a non-linear model to perform the best and were surprised that the LASSO model beat out the other non-linear models, albeit not by much. It turns out the non-linear models were not necessarily needed to capture the slight non-linear relationships in our data. As stated above, CGPA and GRE were the most influential predictors in our ordinary linear regression and LASSO models, with the coefficients being 0.0717 and 0.0209 respectively in our LASSO model. ALthough the coefficient for research was 0.0235, we did not consider it an influence because research is a binary outcome. Our findings make sense in that we would expect GPA and GRE scores to be the most efficient mechanism for universities to weed out large numbers of applicants, with the other factors playing a bigger role in later stages when GPA and GRE scores are more similar across considered applicants. A follow up analysis could be done to determine whether the other predictors have a bigger impact on chances of admission when all applicants have similar, strong GPA and GRE scores. We hope that our models will give graduate school applicants a better idea of what to expect in terms of chances of admission given the components of their application.
+The LASSO model performed the best out of the 5 models, although all of them are comparable since they have similar average test fold MSEs. The difference between the best and worst models is on the $1^{-5}$ scale, which would have a negligible difference in terms of predicting a student's chance of admission.
+We would recommend using the LASSO model for its simplicity, interpretability, and prediction accuracy.
 
+We predicted that the GAM would perform the best since it would better capture the plateauing seen in GRE and CGPA. These nonlinearities were still well approximated by the linear models. Our model suggests that hopeful Masters applicants should focus on maximizing their GRE, GPA and research experience on their applications, rather than putting that effort into their statement of purposes. Our findings confirm conventional wisdom that GPA and GRE scores are the most efficient mechanism for universities to single out capable applicants from large student pools.
+
+In this report, we've developed predictive models to predict a student's chance of admission to a Master's program. We hope that our model will give graduate school applicants a better idea of what to expect in terms of their chances of admission given their specific metrics. 
 
