@@ -6,9 +6,12 @@ output: html_document
 ---
 
 ```{r setup, message = FALSE}
+library(tidyverse)
 library(glmnet) # LASSO
 library(mgcv) # GAMs
 library(modelr) # cross-validation help
+library(earth)
+library(caret)
 
 # Loading in the dataset
 admit.data = read.csv(file = "./admission_predict.csv") %>% 
@@ -21,7 +24,7 @@ admit.data = read.csv(file = "./admission_predict.csv") %>%
     sop.strength = sop,
     lor.strength = lor
   ) %>% 
-  dplyr::select(serial_no, gre.std:lor.strength, research, chance_of_admit)
+  dplyr::select(gre.std:lor.strength, research, chance_of_admit)
 ```
 
 ```{r train-test-split }
@@ -33,7 +36,6 @@ folds = crossv_kfold(admit.data, k = 10)
 ### Linear CV
 Cross validation was performed in two ways: 1)using map function and 2) using loops. They had the same results.. YAY! we should prob use the loop method to stay consistent?
 MSE: 0.003688345
-
 ```{r}
 # linear model 1
 
@@ -50,6 +52,7 @@ mean(lm.mse)
 
 ```{r}
 #linear models 2
+lin.mse = vector(length = 5)
 for (k in 1:nrow(folds)) {
   
   # prepare test and train data
@@ -70,14 +73,15 @@ for (k in 1:nrow(folds)) {
   lin.mse[k] = mean((lin.pred - y.test)^2)
 
 }
-
 lin.mse.final = mean(lin.mse)
 ```
 
 ### Lasso CV
 MSE:0.003684451
+
 ```{r}
 # lasso
+lasso.mse = vector(length = 5)
 for (k in 1:nrow(folds)) {
   
   # prepare test and train data
@@ -86,38 +90,64 @@ for (k in 1:nrow(folds)) {
   test = admit.data[-train.idx,]
   
   # train matrix
-  X.train = train %>% dplyr::select(gre.std:research)
-  fmt.X.train = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
-                   sop.strength + lor.strength + research, X.train)
+  X.train = train %>% dplyr::select(gre.std:research) %>% as.matrix(.)
   y.train = train$chance_of_admit
   
   # test matrix
-  X.test = test %>% dplyr::select(gre.std:research)
-  fmt.X.test = model.matrix(~ gre.std + toefl.std + cgpa.std + uni.rating + 
-                   sop.strength + lor.strength + research, X.test)
+  X.test = test %>% dplyr::select(gre.std:research) %>% as.matrix(.)
   y.test = test$chance_of_admit
   
   # fit models on train
-  lasso.cv = cv.glmnet(fmt.X.train[,-1], y.train, alpha = 1, type.measure = "mse")
-  lasso.models = glmnet(fmt.X.train[,-1], y.train, alpha = 1, 
+  lasso.cv = cv.glmnet(X.train, y.train, alpha = 1, 
+                       type.measure = "mse")
+  lasso.model = glmnet(X.train, y.train, alpha = 1, 
                    lambda = lasso.cv$lambda.min)
   
   # test 
-  lasso.pred = predict(lasso.models, s = lasso.cv$lambda.min, newx = fmt.X.test[,-1])
+  lasso.pred = predict(lasso.model, s = lasso.cv$lambda.min, newx = X.test)
   
   lasso.mse[k] = mean((lasso.pred - y.test)^2)
+}
+lasso.mse.final = mean(lasso.mse)
+```
+
+### Ridge CV
+```{r}
+# ridge
+ridge.mse = vector(length = 5)
+for (k in 1:nrow(folds)) {
   
+  # prepare test and train data
+  train.idx = folds[k,1][[1]][[toString(k)]]$idx
+  train = admit.data[train.idx,]
+  test = admit.data[-train.idx,]
+  
+  # train matrix
+  X.train = train %>% dplyr::select(gre.std:research) %>% as.matrix(.)
+  y.train = train$chance_of_admit
+  
+  # test matrix
+  X.test = test %>% dplyr::select(gre.std:research) %>% as.matrix(.)
+  y.test = test$chance_of_admit
+  
+  # fit models on train
+  ridge.cv = cv.glmnet(X.train, y.train, alpha = 0, type.measure = "mse",
+                       lambda = exp(seq(-1, 10, length=100)))
+  ridge.model = glmnet(X.train, y.train, alpha = 0, lambda = ridge.cv$lambda.min)
+  
+  # test 
+  ridge.pred = predict(ridge.model, s = ridge.cv$lambda.min, newx = X.test)
+  ridge.mse[k] = mean((ridge.pred - y.test)^2)
 }
 
-lasso.mse.final = mean(lasso.mse)
-
+ridge.mse.final = mean(ridge.mse)
 ```
 
 ### GAM CV
 MSE: 0.003695414
 ```{r}
 # gam
-
+gam.mse = vector(length = 5)
 for (k in 1:nrow(folds)) {
   
   # prepare test and train data
@@ -140,16 +170,84 @@ for (k in 1:nrow(folds)) {
 }
   
 gam.mse.final = mean(gam.mse)
+```
 
+# MARS CV
+```{r}
+tuning_grid = expand.grid(
+  degree = 1:3, 
+  nprune = seq(2, 50, length.out = 10) %>% floor()
+  )
+
+mses = NULL
+for (k in 1:nrow(folds)) {
+  
+  # prepare test and train data
+  train.idx = folds[k,1][[1]][[toString(k)]]$idx
+  train = admit.data[train.idx,]
+  test = admit.data[-train.idx,]
+  
+  final_mars = train(
+    x = subset(train, select = -chance_of_admit),
+    y = train$chance_of_admit,
+    method = "earth",
+    trControl = trainControl(method = "cv", number = 10),  
+    tuneGrid = tuning_grid
+    )
+  
+  mars_preds = predict(final_mars, newdata = test)
+  mse  = mean((test$chance_of_admit - mars_preds)^2)
+  mses = c(mses, mse)
+}
+mars_final_mse = mean(mses)
+```
+
+```{r}
+final_mars$bestTune
 ```
 
 
 ### Results:
 linear mse = 0.003688345
+ridge mse = 
 lasso mse = 0.003684451
 gam mse = 0.003695414
+mars mse = 0.0038838
 
 The lasso model had the lowest resulting MSE from 10-fold cross-validation. However, all MSEs from linear, lasso, and gam models were very similar.
 
+```{r}
+X = admit.data %>% select(-chance_of_admit) %>% as.matrix(.)
+y = admit.data$chance_of_admit
+lin.model = lm(chance_of_admit ~ gre.std + toefl.std + cgpa.std 
+             + uni.rating + sop.strength + lor.strength 
+             + research, data = admit.data)
+lasso.model = glmnet(X, y, alpha = 1, 
+                   lambda = lasso.cv$lambda.min)
+ridge.model = glmnet(X, y, alpha = 0, lambda = ridge.cv$lambda.min)
+gam.model =  gam(chance_of_admit ~ gre.std + s(toefl.std) + s(cgpa.std) 
+               + uni.rating + sop.strength + lor.strength 
+               + research, data = admit.data)
+mars.model = train(
+    x = subset(admit.data, select = -chance_of_admit),
+    y = admit.data$chance_of_admit,
+    method = "earth",
+    trControl = trainControl(method = "cv", number = 10),  
+    tuneGrid = tuning_grid
+    )
+```
 
+```{r}
+tib2 = tibble(
+  "lin" = coef(lin.model),
+  "lasso" = coef(lasso.model),
+  "ridge" = coef(ridge.model),
+  "gam" = coef(gam.model),
+  "mars" = coef(mars.model)
+)
+```
+
+```{r}
+coef(lin.model)
+```
 

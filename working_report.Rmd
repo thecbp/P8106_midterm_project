@@ -19,10 +19,12 @@ The *Graduate Admissions* dataset from Kaggle contains data on about 500 Indian 
 ## Data Cleaning 
 
 ```{r cleaning, message = FALSE, warning = FALSE }
-library(glmnet) # LASSO & ridge
+library(tidyverse)
+library(glmnet) # LASSO
 library(mgcv) # GAMs
-library(earth) # MARS
 library(modelr) # cross-validation help
+library(earth)
+library(caret) # cross-validation help
 
 # Loading in the dataset
 admit.data = read.csv(file = "./admission_predict.csv") %>% 
@@ -70,13 +72,84 @@ We used `cv.glmnet` to find the optimal $\lambda$ for both the ridge and LASSO m
 
 For each of the models, we used 10-fold cross-validation to evaluate the average test fold MSE as a measurement of predictive ability. Table # below shows a comparison of the average test fold MSE for each of the 5 models. 
 
-```{r}
+```{r predict-cv, echo = FALSE }
+set.seed(8106)
+folds = crossv_kfold(admit.data, k = 10)
+lin.mse = vector(length = 5)
+lasso.mse = vector(length = 5)
+ridge.mse = vector(length = 5)
+gam.mse = vector(length = 5)
+mars.mse = vector(length = 5)
 
+tuning_grid = expand.grid(
+  degree = 1:3, 
+  nprune = seq(2, 50, length.out = 10) %>% floor()
+  )
+
+for (k in 1:nrow(folds)) {
+  
+  # prepare test and train data
+  train.idx = folds[k,1][[1]][[toString(k)]]$idx
+  train = admit.data[train.idx,]
+  test = admit.data[-train.idx,]
+  
+  # train matrix
+  X.train = train %>% dplyr::select(gre.std:research) %>% as.matrix(.)
+  y.train = train$chance_of_admit
+  
+  # test matrix
+  X.test = test %>% dplyr::select(gre.std:research) %>% as.matrix(.)
+  y.test = test$chance_of_admit
+  
+  # fit models on train
+  lin.model = lm(chance_of_admit ~ ., data = train)
+  lasso.cv = cv.glmnet(X.train, y.train, alpha = 1, type.measure = "mse")
+  lasso.model = glmnet(X.train, y.train, alpha = 1, lambda = lasso.cv$lambda.min)
+  
+  # fit models on train
+  ridge.cv = cv.glmnet(X.train, y.train, alpha = 0, type.measure = "mse")
+  ridge.model = glmnet(X.train, y.train, alpha = 0, lambda = ridge.cv$lambda.min)
+  
+  gam.model =  gam(chance_of_admit ~ gre.std + s(toefl.std) + s(cgpa.std) 
+               + uni.rating + sop.strength + lor.strength 
+               + research, data = train)
+  mars.model = train(
+    x = subset(train, select = -chance_of_admit),
+    y = train$chance_of_admit,
+    method = "earth",
+    trControl = trainControl(method = "cv", number = 10),  
+    tuneGrid = tuning_grid
+    )
+  
+  lin.pred = predict(lin.model, newdata = test)
+  lasso.pred = predict(lasso.model, s = lasso.cv$lambda.min, newx = X.test)
+  ridge.pred = predict(ridge.model, s = ridge.cv$lambda.min, newx = X.test)
+  gam.pred = predict(gam.model, newdata = test)
+  mars.pred = predict(mars.model, newdata = test)
+  
+  lin.mse[k] = mean((lin.pred - y.test)^2)
+  lasso.mse[k] = mean((lasso.pred - y.test)^2)
+  ridge.mse[k] = mean((ridge.pred - y.test)^2)
+  gam.mse[k] = mean((gam.pred - y.test)^2)
+  mars.mse[k]  = mean((mars.pred - y.test)^2)
+}
+tib = tibble(
+  `Model` = c("Linear", "LASSO", "Ridge", "GAM", "MARS"),
+  `Avg. Test MSE` = c(mean(lin.mse),
+                      mean(lasso.mse),
+                      mean(ridge.mse),
+                      mean(gam.mse),
+                      mean(mars.mse))
+) %>% arrange(`Avg. Test MSE`)
+knitr::kable(tib,
+             caption = "Average Test Fold MSE between the 5 candidate models")
 ```
+
+The LASSO model performed the best out of the 5 models, although all of them are comparable since they have similar average test fold MSEs. The difference between the best and worst models is on the $1^{-5}$ scale, which would have a negligible difference in terms of predicting a student's chance of admission. 
 
 ## Important Variables
 
-We found that [VARIABLES] play the most important role in predicting chance of admission... The least important factors were...
+In our basic linear and LASSO model, CGPA and GRE score exert the strongest influences over a student's chance of admission. The ridge model resulted in coefficients that suggest that all variables affect the chance of admission on a similar scale; each of the variables increases the predicted chance of admission by about 1%. Conversely, the strength of a student's statement of purpose and the rating of the university have the least influence on the chance of admisison. This finding makes sense since we would expect factors that reflect a student's work and testing ability to have a greater impact on admission.
 
 ## Limitations
 
