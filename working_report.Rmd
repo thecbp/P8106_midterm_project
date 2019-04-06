@@ -1,7 +1,7 @@
 ---
 title: "Data Science II Midterm Report"
 author: "Dayoung Yu (dry2115), Justin Hsie (jih2119), Christian Pascual (cbp2128)"
-date: "3/18/2019"
+date: "4/07/2019"
 output: 
   pdf_document:
     number_sections: true
@@ -169,7 +169,8 @@ tib = tibble(
                       mean(mars.mse))
 ) %>% arrange(`Avg. Test MSE`)
 knitr::kable(tib, booktabs = T,
-             caption = "Average Test Fold MSE between the 5 candidate models")
+             caption = "Average Test Fold MSE between the 5 candidate models") %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
 ```
 
 ## Important Variables
@@ -222,12 +223,10 @@ options(knitr.kable.NA = '*')
 
 coef.table %>%
 kable("latex", booktabs = T, linesep = "", escape = F, digits = 4,
-      caption = "Coefficient estimates of the three linear models") 
-
-#%>%
-  # add_header_above(c(" " = 1, "Coefficient Estimates" = 3), bold = T) %>%
-  # kable_styling(latex_options = c("striped", "hold_position")) %>%
-  # column_spec(-1, width = "6em")
+      caption = "Coefficient estimates of the three linear models") %>%
+   add_header_above(c(" " = 1, "Coefficient Estimates" = 3), bold = T) %>%
+   kable_styling(latex_options = c("striped", "hold_position")) %>%
+   column_spec(-1, width = "6em")
 ```
 
 ## Limitations
